@@ -103,6 +103,10 @@ class _database {
                         database: this.config.schema,
                         user: this.config.username,
                         password: this.config.password,
+                        waitForConnections: true,
+                        connectionLimit: 10,
+                        queueLimit: 0,
+                        connectTimeout: 20000,
                         ssl: !this.config.ssl ? undefined : {
                             rejectUnauthorized: false
                         }
@@ -281,7 +285,10 @@ class _database {
                     fieldList = fieldList.replace(/\t/g, ','); //replace tab with comma for header
 
                     while (lstLines.length) { //loop until row is found
-                        sqlQuery = `insert into ${targetTable} (${fieldList}) values`;
+                        let insertVerb = 'insert into';
+                        if (this.config.technology == 'mysql') insertVerb = 'insert ignore into';
+                        // Postgres will use ON CONFLICT DO NOTHING appended later
+                        sqlQuery = `${insertVerb} ${targetTable} (${fieldList}) values`;
 
                         let countBatch = 0; //number of rows in batch
 
@@ -311,7 +318,11 @@ class _database {
                             sqlQuery += `(${activeLine}),`; //enclose row values into round braces
                         }
 
-                        sqlQuery = sqlQuery.slice(0, -1) + ';'; //remove last trailing comma and append colon
+                        sqlQuery = sqlQuery.slice(0, -1);
+                        if (this.config.technology == 'postgres') {
+                            sqlQuery += ' on conflict do nothing';
+                        }
+                        sqlQuery += ';'; //remove last trailing comma and append colon
                         rowCount += await this.executeNonQuery(sqlQuery);
                     }
                 }
@@ -756,7 +767,7 @@ class _database {
             });
             try {
                 await connection.connect();
-                let sqlQuery = `load data local infile './csv/${targetTable}.data' into table ${targetTable} fields terminated by ',' enclosed by '"' escaped by '' lines terminated by '\r\n' ignore 1 lines ;`;
+                let sqlQuery = `load data local infile './csv/${targetTable}.data' IGNORE into table ${targetTable} fields terminated by ',' enclosed by '"' escaped by '' lines terminated by '\r\n' ignore 1 lines ;`;
                 let [result] = await connection.execute<mysql.ResultSetHeader>(sqlQuery);
                 resolve(result.affectedRows || 0);
             } catch (err: mysql.QueryError | any) {

@@ -717,6 +717,18 @@ master:
         - name: manufactured_on
           field: MfdOn
           type: date
+        - name: Manufacturer
+          field: HKMyBatchManufacturer
+          type: text
+        - name: supplier
+          field: HKMyBatchSupplierName
+          type: text
+        - name: expiring_on
+          field: EXPIRYPERIOD
+          type: date
+        - name: mrp
+          field: HKMyBatchMRP
+          type: text
     - name: mst_opening_bill_allocation
       collection: Ledger.BillAllocations
       nature: Derived
@@ -1162,6 +1174,18 @@ transaction:
           type: text
         - name: tracking_number
           field: if ($$IsEmpty:$TrackingNumber or $$IsNotApplicable:$TrackingNumber) then "" else $TrackingNumber
+          type: text
+        - name: Manufacturer
+          field: HKMyBatchManufacturer
+          type: text
+        - name: supplier
+          field: HKMyBatchSupplierName
+          type: text
+        - name: expiring_on
+          field: EXPIRYPERIOD
+          type: date
+        - name: mrp
+          field: HKMyBatchMRP
           type: text
     - name: trn_inventory_additional_cost
       collection: Voucher.LedgerEntries

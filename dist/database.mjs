@@ -114,6 +114,10 @@ class _database {
                         database: this.config.schema,
                         user: this.config.username,
                         password: this.config.password,
+                        waitForConnections: true,
+                        connectionLimit: 10,
+                        queueLimit: 0,
+                        connectTimeout: 20000,
                         ssl: !this.config.ssl ? undefined : {
                             rejectUnauthorized: false
                         }
@@ -297,7 +301,10 @@ class _database {
                     let fieldList = lstLines.shift() || ''; //extract header
                     fieldList = fieldList.replace(/\t/g, ','); //replace tab with comma for header
                     while (lstLines.length) { //loop until row is found
-                        sqlQuery = `insert into ${targetTable} (${fieldList}) values`;
+                        let insertVerb = 'insert into';
+                        if (this.config.technology == 'mysql')
+                            insertVerb = 'insert ignore into';
+                        sqlQuery = `${insertVerb} ${targetTable} (${fieldList}) values`;
                         let countBatch = 0; //number of rows in batch
                         //run a loop to keep on appending row to SQL Query values until max allowable size of query is exhausted
                         while (lstLines.length && (sqlQuery.length + lstLines[0].length + 3 < this.maxQuerySize) && ++countBatch <= 1000) {
@@ -325,7 +332,11 @@ class _database {
                             activeLine = lstValues.join(','); //prepare SQL statement with values separated by comma
                             sqlQuery += `(${activeLine}),`; //enclose row values into round braces
                         }
-                        sqlQuery = sqlQuery.slice(0, -1) + ';'; //remove last trailing comma and append colon
+                        sqlQuery = sqlQuery.slice(0, -1);
+                        if (this.config.technology == 'postgres') {
+                            sqlQuery += ' on conflict do nothing';
+                        }
+                        sqlQuery += ';'; //remove last trailing comma and append colon
                         rowCount += await this.executeNonQuery(sqlQuery);
                     }
                 }
@@ -779,7 +790,7 @@ class _database {
             });
             try {
                 await connection.connect();
-                let sqlQuery = `load data local infile './csv/${targetTable}.data' into table ${targetTable} fields terminated by ',' enclosed by '"' escaped by '' lines terminated by '\r\n' ignore 1 lines ;`;
+                let sqlQuery = `load data local infile './csv/${targetTable}.data' IGNORE into table ${targetTable} fields terminated by ',' enclosed by '"' escaped by '' lines terminated by '\r\n' ignore 1 lines ;`;
                 let [result] = await connection.execute(sqlQuery);
                 resolve(result.affectedRows || 0);
             }

@@ -261,7 +261,11 @@ create table mst_opening_batch_allocation
  opening_value decimal(17,2),
  godown nvarchar(1024),
  _godown varchar(64),
- manufactured_on date
+ manufactured_on date,
+ manufacturer nvarchar(1024),
+ supplier nvarchar(1024),
+ mrp nvarchar(1024),
+ expiring_on date
 );
 
 create table mst_opening_bill_allocation
@@ -418,7 +422,12 @@ create table trn_batch
  _godown varchar(64),
  destination_godown nvarchar(1024),
  _destination_godown varchar(64),
- tracking_number nvarchar(1024)
+ tracking_number nvarchar(1024),
+ manufacturer nvarchar(1024),
+ supplier nvarchar(1024),
+ mrp nvarchar(1024),
+ manufactured_on date,
+ expiring_on date
 );
 
 create table trn_inventory_additional_cost
