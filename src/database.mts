@@ -305,6 +305,27 @@ class _database {
                                 else if (targetFieldType == 'date') {
                                     lstValues[i] = targetFieldValue == 'ñ' ? 'NULL' : `'${targetFieldValue}'`;
                                 }
+                                else if (targetFieldType == 'number' || targetFieldType == 'amount' || targetFieldType == 'quantity' || targetFieldType == 'rate' || targetFieldType == 'logical') {
+                                    // Clean up numeric values - handle special cases like (-)5 which means -5
+                                    if (targetFieldValue.match(/^\([-+]\)\d+\.?\d*$/)) {
+                                        // Pattern like (-)5 or (+)5 - extract the sign and number
+                                        let sign = targetFieldValue.includes('-') ? '-' : '';
+                                        let numPart = targetFieldValue.replace(/[()+-]/g, '');
+                                        targetFieldValue = sign + numPart;
+                                    }
+                                    targetFieldValue = targetFieldValue.trim();
+                                    // Check if it's a valid number
+                                    if (targetFieldValue === '' || targetFieldValue === 'ñ') {
+                                        lstValues[i] = 'NULL';
+                                    } else {
+                                        let numValue = parseFloat(targetFieldValue);
+                                        if (isNaN(numValue)) {
+                                            lstValues[i] = '0'; // Default to 0 for invalid numbers
+                                        } else {
+                                            lstValues[i] = numValue.toString();
+                                        }
+                                    }
+                                }
                                 else;
                             }
                             activeLine = lstValues.join(','); //prepare SQL statement with values separated by comma
