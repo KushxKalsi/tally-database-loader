@@ -62,7 +62,6 @@ create table mst_ledger
  gst_registration_type varchar(64),
  gst_supply_type varchar(64),
  gst_duty_head varchar(16),
- tax_rate decimal(9,4),
  bank_account_holder varchar(256),
  bank_account_number varchar(64),
  bank_ifsc varchar(64),

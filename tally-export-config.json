@@ -509,11 +509,6 @@
                     "source": "gstdutyhead"
                 },
                 {
-                    "name": "tax_rate",
-                    "datatype": "decimal",
-                    "source": "rateoftaxcalculation"
-                },
-                {
                     "name": "bank_account_holder",
                     "datatype": "string",
                     "source": "bankaccholdername"

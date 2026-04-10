@@ -100,9 +100,6 @@ master:
         - name: gst_duty_head
           field: Gstdutyhead
           type: text
-        - name: tax_rate
-          field: RateOfTaxCalculation
-          type: number
         - name: bank_account_holder
           field: Bankaccholdername
           type: text
