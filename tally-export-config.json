@@ -783,7 +783,7 @@
                 {
                     "name": "alternate_uom",
                     "datatype": "string",
-                    "source": "baseunits",
+                    "source": "additionalunits",
                     "transform": {
                         "replace": "\u0004 Not Applicable"
                     }
