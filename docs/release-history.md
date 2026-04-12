@@ -1,5 +1,13 @@
 ## Release History
 
+**Version: 1.0.42 [12-Apr-2026]**<br>
+
+Fixed:
+* Field **rate_rate** in **mst_ledger** was found to be **obsolete** is now **removed** based on issue raised in [#56](https://github.com/dhananjay1405/tally-database-loader/issues/56)
+* Field alternate UOM was using incorrect field for JSON based extraction identified in issue [#55](https://github.com/dhananjay1405/tally-database-loader/issues/55)
+* Field with **type** specified as **number** in YAML were emiting (-) negative sign in braces, if negative value is stored in the field. Braces or brackets needs to be removed as it would disrupt SQL data base import and CSV output. This issue was identified in [#53](https://github.com/dhananjay1405/tally-database-loader/issues/53)
+* Few fields with type as quantity internally in Tally were mistakenly specified as number in YAML
+
 **Version: 1.0.41 [14-Feb-2026]**<br>
 
 Fixed:

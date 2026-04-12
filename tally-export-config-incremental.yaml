@@ -358,8 +358,8 @@ master:
           field: Conversion
           type: number
         - name: opening_balance
-          field: $$StringFindAndReplace:($$Number:$$String:$OpeningBalance):"(-)":"-"
-          type: number
+          field: OpeningBalance
+          type: quantity
         - name: opening_rate
           field: OpeningRate
           type: rate
@@ -367,8 +367,8 @@ master:
           field: OpeningValue
           type: amount
         - name: closing_balance
-          field: $$StringFindAndReplace:($$Number:$$String:$ClosingBalance):"(-)":"-"
-          type: number
+          field: ClosingBalance
+          type: quantity
         - name: closing_rate
           field: ClosingRate
           type: rate
@@ -697,8 +697,8 @@ master:
           field: $Guid:StockItem:$..Name
           type: text
         - name: opening_balance
-          field: $$StringFindAndReplace:($$Number:$$String:$OpeningBalance):"(-)":"-"
-          type: amount
+          field: OpeningBalance
+          type: quantity
         - name: opening_rate
           field: OpeningRate
           type: rate
