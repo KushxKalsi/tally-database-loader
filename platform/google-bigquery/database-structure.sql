@@ -41,7 +41,6 @@ create table tallydb.mst_ledger
  gst_registration_type string,
  gst_supply_type string,
  gst_duty_head string,
- tax_rate decimal,
  bank_account_holder string,
  bank_account_number string,
  bank_ifsc string,
