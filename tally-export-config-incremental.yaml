@@ -1177,6 +1177,7 @@ transaction:
           type: text
         - name: manufactured_on
           field: MfdOn
+          type: date
         - name: Manufacturer
           field: HKMyBatchManufacturer
           type: text
