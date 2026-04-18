@@ -1175,6 +1175,8 @@ transaction:
         - name: tracking_number
           field: if ($$IsEmpty:$TrackingNumber or $$IsNotApplicable:$TrackingNumber) then "" else $TrackingNumber
           type: text
+        - name: manufactured_on
+          field: MfdOn
         - name: Manufacturer
           field: HKMyBatchManufacturer
           type: text
