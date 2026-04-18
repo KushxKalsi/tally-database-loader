@@ -1175,15 +1175,15 @@ transaction:
         - name: tracking_number
           field: if ($$IsEmpty:$TrackingNumber or $$IsNotApplicable:$TrackingNumber) then "" else $TrackingNumber
           type: text
+        - name: manufactured_on
+          field: MfdOn
+          type: date
         - name: Manufacturer
           field: HKMyBatchManufacturer
           type: text
         - name: supplier
           field: HKMyBatchSupplierName
           type: text
-        - name: manufactured_on
-          field: MfdOn
-          type: date
         - name: expiring_on
           field: EXPIRYPERIOD
           type: date
