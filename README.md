@@ -39,8 +39,8 @@ Commandline utility to load data into Database Server from Tally software, inten
 <br><br>
 
 ## Version
-Latest Version: **1.0.41**<br>
-Updated on: **14-Feb-2026**
+Latest Version: **1.0.42**<br>
+Updated on: **12-Apr-2026**
 
 Beta Feature:
 * Collection based data extraction with 2x performance and 40% less RAM usage. In definition simply change file extension ~~yaml~~ to **json**
@@ -51,7 +51,7 @@ Beta Feature:
 
 Database Loader Utility is portable, and does not have a setup wizard like we find for software installation. Zip archive of utility can be downloaded from below link.
 
-[https://excelkida.com/resource/tally-database-loader-utility-1.0.41.7z](https://excelkida.com/resource/tally-database-loader-utility-1.0.41.7z)
+[https://excelkida.com/resource/tally-database-loader-utility-1.0.42.7z](https://excelkida.com/resource/tally-database-loader-utility-1.0.42.7z)
 
 <br><br>
 

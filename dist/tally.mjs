@@ -83,7 +83,7 @@ class _tally {
     importData() {
         return new Promise(async (resolve, reject) => {
             try {
-                logger.logMessage('Tally to Database | version: 1.0.41');
+                logger.logMessage('Tally to Database | version: 1.0.42');
                 let pathTallyExportDefinition = this.config.definition;
                 if (pathTallyExportDefinition.endsWith('.yaml')) {
                     //Load YAML export definition file
@@ -970,7 +970,7 @@ class _tally {
                     else if (iField.type == 'date')
                         fieldXML += `<SET>if $$IsEmpty:$${iField.field} then $$StrByCharCode:241 else $$PyrlYYYYMMDDFormat:$${iField.field}:"-"</SET>`;
                     else if (iField.type == 'number')
-                        fieldXML += `<SET>if $$IsEmpty:$${iField.field} then "0" else $$String:$${iField.field}</SET>`;
+                        fieldXML += `<SET>if $$IsEmpty:$${iField.field} then "0" else $$StringFindAndReplace:($$String:$${iField.field}):"(-)":"-"</SET>`;
                     else if (iField.type == 'amount')
                         fieldXML += `<SET>$$StringFindAndReplace:(if $$IsDebit:$${iField.field} then -$$NumValue:$${iField.field} else $$NumValue:$${iField.field}):"(-)":"-"</SET>`;
                     else if (iField.type == 'quantity')
