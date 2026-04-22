@@ -40,7 +40,6 @@
                 "gstregistrationtype",
                 "gsttypeofsupply",
                 "gstdutyhead",
-                "rateoftaxcalculation",
                 "bankaccholdername",
                 "bankdetails",
                 "ifscode",
@@ -509,11 +508,6 @@
                     "source": "gstdutyhead"
                 },
                 {
-                    "name": "tax_rate",
-                    "datatype": "decimal",
-                    "source": "rateoftaxcalculation"
-                },
-                {
                     "name": "bank_account_holder",
                     "datatype": "string",
                     "source": "bankaccholdername"
@@ -783,7 +777,7 @@
                 {
                     "name": "alternate_uom",
                     "datatype": "string",
-                    "source": "baseunits",
+                    "source": "additionalunits",
                     "transform": {
                         "replace": "\u0004 Not Applicable"
                     }
