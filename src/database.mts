@@ -461,6 +461,129 @@ class _database {
         });
     }
 
+    shouldTruncateToday(): boolean {
+        try {
+            if (!this.config.daily_truncate_time) {
+                return false; // feature not configured
+            }
+
+            // Parse configured time (format: "HH:MM")
+            const [targetHour, targetMinute] = this.config.daily_truncate_time.split(':').map(Number);
+            const now = new Date();
+            const currentHour = now.getHours();
+            const currentMinute = now.getMinutes();
+
+            // Check if current time matches the configured time (within 1 minute window)
+            const isTimeMatch = currentHour === targetHour && currentMinute === targetMinute;
+
+            if (!isTimeMatch) {
+                return false;
+            }
+
+            // Check if truncate already done today
+            const lastTruncateDate = this.getLastTruncateDate();
+            const today = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+
+            if (lastTruncateDate === today) {
+                return false; // already truncated today
+            }
+
+            return true;
+        } catch (err) {
+            logger.logError('database.shouldTruncateToday()', err);
+            return false;
+        }
+    }
+
+    private getLastTruncateDate(): string {
+        try {
+            const configFile = './config.json';
+            const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+            return config.database.last_truncate_date || '';
+        } catch (err) {
+            return '';
+        }
+    }
+
+    private setLastTruncateDate(date: string): void {
+        try {
+            const configFile = './config.json';
+            const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+            config.database.last_truncate_date = date;
+            fs.writeFileSync(configFile, JSON.stringify(config, null, 4));
+        } catch (err) {
+            logger.logError('database.setLastTruncateDate()', err);
+        }
+    }
+
+    async truncateAllTables(lstTables: string[]): Promise<void> {
+        return new Promise<void>(async (resolve, reject) => {
+            let retryCount = 0;
+            const maxRetries = 2;
+
+            while (retryCount < maxRetries) {
+                try {
+                    logger.logMessage('Starting daily truncate of all tables [%s]', new Date().toLocaleString());
+
+                    // Disable foreign key checks
+                    if (this.config.technology == 'mysql') {
+                        await this.executeNonQuery('SET FOREIGN_KEY_CHECKS = 0;');
+                    } else if (this.config.technology == 'mssql') {
+                        // For MSSQL, disable constraints per table
+                        for (const table of lstTables) {
+                            try {
+                                await this.executeNonQuery(`ALTER TABLE ${table} NOCHECK CONSTRAINT ALL;`);
+                            } catch (err) {
+                                logger.logError(`database.truncateAllTables() - disable constraint for ${table}`, err);
+                            }
+                        }
+                    } else if (this.config.technology == 'postgres') {
+                        await this.executeNonQuery('SET session_replication_role = replica;');
+                    }
+
+                    // Truncate all tables
+                    await this.truncateTables(lstTables);
+
+                    // Re-enable foreign key checks
+                    if (this.config.technology == 'mysql') {
+                        await this.executeNonQuery('SET FOREIGN_KEY_CHECKS = 1;');
+                    } else if (this.config.technology == 'mssql') {
+                        // For MSSQL, re-enable constraints per table
+                        for (const table of lstTables) {
+                            try {
+                                await this.executeNonQuery(`ALTER TABLE ${table} CHECK CONSTRAINT ALL;`);
+                            } catch (err) {
+                                logger.logError(`database.truncateAllTables() - enable constraint for ${table}`, err);
+                            }
+                        }
+                    } else if (this.config.technology == 'postgres') {
+                        await this.executeNonQuery('SET session_replication_role = DEFAULT;');
+                    }
+
+                    // Update last truncate date
+                    const today = new Date().toISOString().split('T')[0];
+                    this.setLastTruncateDate(today);
+
+                    logger.logMessage('Daily truncate completed successfully [%s]', new Date().toLocaleString());
+                    resolve();
+                    return;
+                } catch (err) {
+                    retryCount++;
+                    logger.logError(`database.truncateAllTables() - Attempt ${retryCount}`, err);
+
+                    if (retryCount >= maxRetries) {
+                        logger.logMessage('Daily truncate failed after %d attempts, continuing with incremental sync [%s]', maxRetries, new Date().toLocaleString());
+                        resolve(); // Don't reject, just continue with incremental sync
+                        return;
+                    }
+
+                    // Wait 2 seconds before retry
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+            }
+        });
+    }
+
     uploadGoogleBigQuery(targetTable: string): Promise<number> {
         return new Promise<number>(async (resolve, reject) => {
             try {

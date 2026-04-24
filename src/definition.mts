@@ -7,6 +7,7 @@ export interface connectionConfig {
     username: string;
     password: string;
     loadmethod: string;
+    daily_truncate_time?: string;
 }
 
 export interface tallyConfig {
