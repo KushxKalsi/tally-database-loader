@@ -94,14 +94,14 @@ if (tally.config.sync === 'incremental' && database.config.daily_truncate_time) 
     setInterval(async () => {
         try {
             if (database.shouldTruncateToday()) {
-                logger.logMessage('Daily truncate time reached, stopping current sync if running [%s]', new Date().toLocaleString());
+                logger.logMessage('Daily truncate time reached, waiting for current sync to complete [%s]', new Date().toLocaleString());
                 
-                // Wait for current sync to finish if running
-                let waitCount = 0;
-                while (isSyncRunning && waitCount < 60) { // wait max 60 seconds
-                    await new Promise(r => setTimeout(r, 1000));
-                    waitCount++;
+                // Wait for current sync to finish if running (no timeout - wait indefinitely)
+                while (isSyncRunning) {
+                    await new Promise(r => setTimeout(r, 1000)); // check every second
                 }
+                
+                logger.logMessage('Starting daily truncate [%s]', new Date().toLocaleString());
                 
                 // Force truncate and sync
                 await invokeImport(true);
