@@ -28,6 +28,11 @@ function invokeImport(forceTruncate = false) {
     return new Promise(async (resolve) => {
         try {
             isSyncRunning = true;
+            // Clean up any leftover csv folder from a previously failed sync
+            if (fs.existsSync('./csv')) {
+                fs.rmSync('./csv', { recursive: true });
+                logger.logMessage('Cleaned up leftover csv folder from previous sync [%s]', new Date().toLocaleString());
+            }
             // Check if daily truncate is needed (only for incremental sync)
             if (tally.config.sync === 'incremental' && forceTruncate) {
                 // Reopen connection pool if needed (it may have been closed by previous sync)
