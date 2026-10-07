@@ -238,7 +238,7 @@ master:
           field: Name
           type: text
         - name: parent
-          field: Parent
+          field: if $$IsEqual:$Parent:$$SysName:Primary then "" else $Parent
           type: text
         - name: _parent
           field: if $$IsEqual:$Parent:$$SysName:Primary then "" else $Guid:Godown:$Parent

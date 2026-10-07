@@ -1,15 +1,15 @@
 create table config
 (
- name varchar(64) not null primary key,
- value varchar(1024)
+ name varchar not null primary key,
+ value varchar
 );
 
 create table mst_group
 (
- guid varchar(64) not null primary key,
- name varchar(1024),
- parent varchar(1024),
- primary_group varchar(1024),
+ guid varchar not null primary key,
+ name varchar,
+ parent varchar,
+ primary_group varchar,
  is_revenue smallint,
  is_deemedpositive smallint,
  is_reserved smallint,
@@ -19,244 +19,244 @@ create table mst_group
 
 create table mst_ledger
 (
- guid varchar(64) not null primary key,
- name varchar(1024),
- parent varchar(1024),
- alias varchar(256),
- description varchar(64),
- notes varchar(64),
+ guid varchar not null primary key,
+ name varchar,
+ parent varchar,
+ alias varchar,
+ description varchar,
+ notes varchar,
  is_revenue smallint,
  is_deemedpositive smallint,
- opening_balance decimal(17,2),
- closing_balance decimal(17,2),
- mailing_name varchar(256),
- mailing_address varchar(1024),
- mailing_state varchar(256),
- mailing_country varchar(256),
- mailing_pincode varchar(64),
- email varchar(256),
- mobile varchar(32),
- it_pan varchar(64),
- gstn varchar(64),
- gst_registration_type varchar(64),
- gst_supply_type varchar(64),
- gst_duty_head varchar(16),
- bank_account_holder varchar(256),
- bank_account_number varchar(64),
- bank_ifsc varchar(64),
- bank_swift varchar(64),
- bank_name varchar(64),
- bank_branch varchar(64),
+ opening_balance decimal,
+ closing_balance decimal,
+ mailing_name varchar,
+ mailing_address varchar,
+ mailing_state varchar,
+ mailing_country varchar,
+ mailing_pincode varchar,
+ email varchar,
+ mobile varchar,
+ it_pan varchar,
+ gstn varchar,
+ gst_registration_type varchar,
+ gst_supply_type varchar,
+ gst_duty_head varchar,
+ bank_account_holder varchar,
+ bank_account_number varchar,
+ bank_ifsc varchar,
+ bank_swift varchar,
+ bank_name varchar,
+ bank_branch varchar,
  bill_credit_period int
 );
 
 create table mst_vouchertype
 (
- guid varchar(64) not null primary key,
- name varchar(1024),
- parent varchar(1024),
- numbering_method varchar(64),
+ guid varchar not null primary key,
+ name varchar,
+ parent varchar,
+ numbering_method varchar,
  is_deemedpositive smallint,
  affects_stock smallint
 );
 
 create table mst_uom
 (
- guid varchar(64) not null primary key,
- name varchar(1024),
- formalname varchar(256),
+ guid varchar not null primary key,
+ name varchar,
+ formalname varchar,
  is_simple_unit smallint,
- base_units varchar(1024),
- additional_units varchar(1024),
- conversion decimal(15,4)
+ base_units varchar,
+ additional_units varchar,
+ conversion decimal
 );
 
 create table mst_godown
 (
- guid varchar(64) not null primary key,
- name varchar(1024),
- parent varchar(1024),
- address varchar(1024)
+ guid varchar not null primary key,
+ name varchar,
+ parent varchar,
+ address varchar
 );
 
 create table mst_stock_category
 (
- guid varchar(64) not null primary key,
- name varchar(1024),
- parent varchar(1024)
+ guid varchar not null primary key,
+ name varchar,
+ parent varchar
 );
 
 create table mst_stock_group
 (
- guid varchar(64) not null primary key,
- name varchar(1024),
- parent varchar(1024)
+ guid varchar not null primary key,
+ name varchar,
+ parent varchar
 );
 
 create table mst_stock_item
 (
- guid varchar(64) not null primary key,
- name varchar(1024),
- parent varchar(1024),
- category varchar(1024),
- alias varchar(256),
- description varchar(64),
- notes varchar(64),
- part_number varchar(256),
- uom varchar(32),
- alternate_uom varchar(32),
- conversion decimal(15,4),
- opening_balance decimal(15,4),
- opening_rate decimal(15,4),
- opening_value decimal(17,2),
- closing_balance decimal(15,4),
- closing_rate decimal(15,4),
- closing_value decimal(17,2),
- costing_method varchar(32),
- gst_type_of_supply varchar(32),
- gst_hsn_code varchar(64),
- gst_hsn_description varchar(256),
- gst_rate decimal(9,4),
- gst_taxability varchar(32)
+ guid varchar not null primary key,
+ name varchar,
+ parent varchar,
+ category varchar,
+ alias varchar,
+ description varchar,
+ notes varchar,
+ part_number varchar,
+ uom varchar,
+ alternate_uom varchar,
+ conversion decimal,
+ opening_balance decimal,
+ opening_rate decimal,
+ opening_value decimal,
+ closing_balance decimal,
+ closing_rate decimal,
+ closing_value decimal,
+ costing_method varchar,
+ gst_type_of_supply varchar,
+ gst_hsn_code varchar,
+ gst_hsn_description varchar,
+ gst_rate decimal,
+ gst_taxability varchar
 );
 
 create table mst_cost_category
 (
- guid varchar(64) not null primary key,
- name varchar(1024),
+ guid varchar not null primary key,
+ name varchar,
  allocate_revenue smallint,
  allocate_non_revenue smallint
 );
 
 create table mst_cost_centre
 (
- guid varchar(64) not null primary key,
- name varchar(1024),
- parent varchar(1024),
- category varchar(1024)
+ guid varchar not null primary key,
+ name varchar,
+ parent varchar,
+ category varchar
 );
 
 create table mst_attendance_type
 (
- guid varchar(64) not null primary key,
- name varchar(1024),
- parent varchar(1024),
- uom varchar(32),
- attendance_type varchar(64),
- attendance_period varchar(64)
+ guid varchar not null primary key,
+ name varchar,
+ parent varchar,
+ uom varchar,
+ attendance_type varchar,
+ attendance_period varchar
 );
 
 create table mst_employee
 (
- guid varchar(64) not null primary key,
- name varchar(1024),
- parent varchar(1024),
- id_number varchar(256),
+ guid varchar not null primary key,
+ name varchar,
+ parent varchar,
+ id_number varchar,
  date_of_joining date,
  date_of_release date,
- designation varchar(64),
- function_role varchar(64),
- location varchar(256),
- gender varchar(32),
+ designation varchar,
+ function_role varchar,
+ location varchar,
+ gender varchar,
  date_of_birth date,
- blood_group varchar(32),
- father_mother_name varchar(256),
- spouse_name varchar(256),
- address varchar(256),
- mobile varchar(32),
- email varchar(64),
- pan varchar(32),
- aadhar varchar(32),
- uan varchar(32),
- pf_number varchar(32),
+ blood_group varchar,
+ father_mother_name varchar,
+ spouse_name varchar,
+ address varchar,
+ mobile varchar,
+ email varchar,
+ pan varchar,
+ aadhar varchar,
+ uan varchar,
+ pf_number varchar,
  pf_joining_date date,
  pf_relieving_date date,
- pr_account_number varchar(32)
+ pr_account_number varchar
 );
 
 create table mst_payhead
 (
- guid varchar(64) not null primary key,
- name varchar(1024),
- parent varchar(1024),
- payslip_name varchar(1024),
- pay_type varchar(64),
- income_type varchar(64),
- calculation_type varchar(32),
- leave_type varchar(64),
- calculation_period varchar(32)
+ guid varchar not null primary key,
+ name varchar,
+ parent varchar,
+ payslip_name varchar,
+ pay_type varchar,
+ income_type varchar,
+ calculation_type varchar,
+ leave_type varchar,
+ calculation_period varchar
 );
 
 create table mst_gst_effective_rate
 (
- item varchar(1024),
+ item varchar,
  applicable_from date,
- hsn_description varchar(256),
- hsn_code varchar(64),
- duty_head varchar(64),
- rate decimal(9,4),
- rate_per_unit decimal(9,4),
- valuation_type varchar(64),
+ hsn_description varchar,
+ hsn_code varchar,
+ duty_head varchar,
+ rate decimal,
+ rate_per_unit decimal,
+ valuation_type varchar,
  is_rcm_applicable smallint,
- nature_of_transaction varchar(64),
- nature_of_goods varchar(64),
- supply_type varchar(64),
- taxability varchar(64)
+ nature_of_transaction varchar,
+ nature_of_goods varchar,
+ supply_type varchar,
+ taxability varchar
 );
 
 create table mst_opening_batch_allocation
 (
- name varchar(1024),
- item varchar(1024),
- opening_balance decimal(15,4),
- opening_rate decimal(15,4),
- opening_value decimal(17,2),
- godown varchar(1024),
+ name varchar,
+ item varchar,
+ opening_balance decimal,
+ opening_rate decimal,
+ opening_value decimal,
+ godown varchar,
  manufactured_on date
 );
 
 create table mst_opening_bill_allocation
 (
- ledger varchar(1024),
- opening_balance decimal(17,4),
+ ledger varchar,
+ opening_balance decimal,
  bill_date date,
- name varchar(1024),
+ name varchar,
  bill_credit_period int,
  is_advance smallint
 );
 
 create table trn_closingstock_ledger
 (
- ledger varchar(1024),
+ ledger varchar,
  stock_date date,
- stock_value decimal(17,2)
+ stock_value decimal
 );
 
 create table mst_stockitem_standard_cost
 (
- item varchar(1024),
+ item varchar,
  date date,
- rate decimal(15,4)
+ rate decimal
 );
 
 create table mst_stockitem_standard_price
 (
- item varchar(1024),
+ item varchar,
  date date,
- rate decimal(15,4)
+ rate decimal
 );
 
 create table trn_voucher
 (
- guid varchar(64) not null primary key,
+ guid varchar not null primary key,
  date date,
- voucher_type varchar(1024),
- voucher_number varchar(64),
- reference_number varchar(64),
+ voucher_type varchar,
+ voucher_number varchar,
+ reference_number varchar,
  reference_date date,
- narration varchar(4000),
- party_name varchar(256),
- place_of_supply varchar(256),
+ narration varchar,
+ party_name varchar,
+ place_of_supply varchar,
  is_invoice smallint,
  is_accounting_voucher smallint,
  is_inventory_voucher smallint,
@@ -265,123 +265,123 @@ create table trn_voucher
 
 create table trn_accounting
 (
- guid varchar(64),
- ledger varchar(1024),
- amount decimal(17,2),
- amount_forex decimal(17,2),
- currency varchar(16)
+ guid varchar,
+ ledger varchar,
+ amount decimal,
+ amount_forex decimal,
+ currency varchar
 );
 
 create table trn_inventory
 (
- guid varchar(64),
- item varchar(1024),
- quantity decimal(15,4),
- rate decimal(15,4),
- amount decimal(17,2),
- additional_amount decimal(17,2),
- discount_amount decimal(17,2),
- godown varchar(1024),
- tracking_number varchar(256),
- order_number varchar(256),
+ guid varchar,
+ item varchar,
+ quantity decimal,
+ rate decimal,
+ amount decimal,
+ additional_amount decimal,
+ discount_amount decimal,
+ godown varchar,
+ tracking_number varchar,
+ order_number varchar,
  order_duedate date
 );
 
 create table trn_cost_centre
 (
- guid varchar(64),
- ledger varchar(1024),
- costcentre varchar(1024),
- amount decimal(17,2)
+ guid varchar,
+ ledger varchar,
+ costcentre varchar,
+ amount decimal
 );
 
 create table trn_cost_category_centre
 (
- guid varchar(64),
- ledger varchar(1024),
- costcategory varchar(1024),
- costcentre varchar(1024),
- amount decimal(17,2)
+ guid varchar,
+ ledger varchar,
+ costcategory varchar,
+ costcentre varchar,
+ amount decimal
 );
 
 create table trn_cost_inventory_category_centre
 (
- guid varchar(64),
- ledger varchar(1024),
- item varchar(1024),
- costcategory varchar(1024),
- costcentre varchar(1024),
- amount decimal(17,2)
+ guid varchar,
+ ledger varchar,
+ item varchar,
+ costcategory varchar,
+ costcentre varchar,
+ amount decimal
 );
 
 create table trn_bill
 (
- guid varchar(64),
- ledger varchar(1024),
- name varchar(1024),
- amount decimal(17,2),
- billtype varchar(256),
+ guid varchar,
+ ledger varchar,
+ name varchar,
+ amount decimal,
+ billtype varchar,
  bill_credit_period int
 );
 
 create table trn_bank
 (
- guid varchar(64),
- ledger varchar(1024),
- transaction_type varchar(32),
+ guid varchar,
+ ledger varchar,
+ transaction_type varchar,
  instrument_date date,
- instrument_number varchar(1024),
- bank_name varchar(64),
- amount decimal(17,2),
+ instrument_number varchar,
+ bank_name varchar,
+ amount decimal,
  bankers_date date
 );
 
 create table trn_batch
 (
- guid varchar(64),
- item varchar(1024),
- name varchar(1024),
- quantity decimal(15,4),
- amount decimal(17,2),
- godown varchar(1024),
- destination_godown varchar(1024),
- tracking_number varchar(1024)
+ guid varchar,
+ item varchar,
+ name varchar,
+ quantity decimal,
+ amount decimal,
+ godown varchar,
+ destination_godown varchar,
+ tracking_number varchar
 );
 
 create table trn_inventory_additional_cost
 (
- guid varchar(64),
- ledger varchar(1024),
- amount decimal(17,2),
- additional_allocation_type varchar(32),
- rate_of_invoice_tax decimal(9,4)
+ guid varchar,
+ ledger varchar,
+ amount decimal,
+ additional_allocation_type varchar,
+ rate_of_invoice_tax decimal
 );
 
 create table trn_employee
 (
- guid varchar(64),
- category varchar(1024),
- employee_name varchar(1024),
- amount decimal(17,2),
+ guid varchar,
+ category varchar,
+ employee_name varchar,
+ amount decimal,
  employee_sort_order int
 );
 
 create table trn_payhead
 (
- guid varchar(64),
- category varchar(1024),
- employee_name varchar(1024),
+ guid varchar,
+ category varchar,
+ employee_name varchar,
  employee_sort_order int,
- payhead_name varchar(1024),
+ payhead_name varchar,
  payhead_sort_order int,
- amount decimal(17,2)
+ amount decimal
 );
 
 create table trn_attendance
 (
- guid varchar(64),
- employee_name varchar(1024),
- attendancetype_name varchar(1024),
- time_value decimal(17,2),
- type_value decimal(17,2)
+ guid varchar,
+ employee_name varchar,
+ attendancetype_name varchar,
+ time_value decimal,
+ type_value decimal
 );

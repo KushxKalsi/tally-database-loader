@@ -83,7 +83,7 @@ class _tally {
     importData() {
         return new Promise(async (resolve, reject) => {
             try {
-                logger.logMessage('Tally to Database | version: 1.0.42');
+                logger.logMessage('Tally to Database | version: 1.0.44');
                 let pathTallyExportDefinition = this.config.definition;
                 if (pathTallyExportDefinition.endsWith('.yaml')) {
                     //Load YAML export definition file
@@ -1400,9 +1400,13 @@ class _tally {
                         }
                     }
                     else if (isParsingCollection && /^\<\/[A-Z]+\.LIST\>$/g.test(line)) { //check if line is end of sub-list
-                        isParsingSubList = false; //reset sub-list flag
-                        isParsingArrayList = false; //reset array list flag
-                        lstPathTree.pop(); //pop from path tree
+                        if (isParsingArrayList) {
+                            isParsingArrayList = false; //reset array list flag
+                        }
+                        else {
+                            isParsingSubList = false; //reset sub-list flag
+                            lstPathTree.pop(); //pop from path tree
+                        }
                     }
                     else
                         ;

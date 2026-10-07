@@ -647,7 +647,10 @@
                 {
                     "name": "parent",
                     "datatype": "string",
-                    "source": "parent"
+                    "source": "parent",
+                    "transform": {
+                        "replace": "\u0004 Primary"
+                    }
                 },
                 {
                     "name": "address",

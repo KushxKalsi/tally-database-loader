@@ -179,7 +179,7 @@ master:
           field: Name
           type: text
         - name: parent
-          field: Parent
+          field: if $$IsEqual:$Parent:$$SysName:Primary then "" else $Parent
           type: text
         - name: address
           field: if $$IsEmpty:$Address then "" else $$FullList:Address:$Address
