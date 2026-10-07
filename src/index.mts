@@ -180,20 +180,27 @@ else { // continuous sync
 
         isSyncRunning = true;
         try {
-            await tally.updateLastAlterId();
+            // data added / altered in Tally while sync was running is left out of that sync,
+            // so follow it up with one more round right away instead of waiting for next trigger
+            for(let round = 1; round <= 2; round++) {
+                await tally.updateLastAlterId();
 
-            let isDataChanged = !(lastMasterAlterId == tally.lastAlterIdMaster && lastTransactionAlterId == tally.lastAlterIdTransaction);
-            if(isDataChanged) { // process only if data is changed
+                let isDataChanged = !(lastMasterAlterId == tally.lastAlterIdMaster && lastTransactionAlterId == tally.lastAlterIdTransaction);
+                if(!isDataChanged) { // process only if data is changed
+                    if(round == 1) {
+                        logger.logMessage('No change in Tally data found [%s]', new Date().toLocaleString());
+                    }
+                    break;
+                }
+
                 let masterAlterId = tally.lastAlterIdMaster;
                 let transactionAlterId = tally.lastAlterIdTransaction;
-                if(await invokeImport()) {
-                    //update local variable copy of last alter ID (only on success, so that failed sync is retried on next trigger)
-                    lastMasterAlterId = masterAlterId;
-                    lastTransactionAlterId = transactionAlterId;
+                if(!await invokeImport()) {
+                    break; // failed sync is retried on next trigger
                 }
-            }
-            else {
-                logger.logMessage('No change in Tally data found [%s]', new Date().toLocaleString());
+                //update local variable copy of last alter ID
+                lastMasterAlterId = masterAlterId;
+                lastTransactionAlterId = transactionAlterId;
             }
         } catch (err) {
             // do not let utility crash (e.g. company closed in Tally), next trigger will try again
