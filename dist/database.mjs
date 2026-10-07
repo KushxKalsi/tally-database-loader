@@ -10,6 +10,7 @@ let connectionPoolMysql;
 class _database {
     config;
     maxQuerySize = 65535; //maximum size of SQL query to be executed
+    truncateGraceMinutes = 30; //how long after a scheduled truncate time it can still be run
     bigquery = new BigQuery();
     connectionPoolPostgres = new postgres.Pool({});
     constructor() {
@@ -513,57 +514,53 @@ class _database {
             }
         });
     }
-    shouldTruncateToday() {
+    // Returns the scheduled truncate time ("HH:MM") which is due right now, or blank if none.
+    // "daily_truncate_time" in config.json accepts "13:35", "13:35,19:10" or ["13:35", "19:10"]
+    // and is read fresh on every check, so times can be changed without restarting the utility.
+    // A time stays due for truncateGraceMinutes, so it is not missed when the check is delayed
+    // by a running sync or the utility is started shortly after the scheduled time.
+    getDueTruncateTime() {
         try {
-            if (!this.config.daily_truncate_time) {
-                return false; // feature not configured
+            const config = JSON.parse(fs.readFileSync('./config.json', 'utf8'))['database'];
+            const value = config.daily_truncate_time ?? [];
+            const lstTimes = (Array.isArray(value) ? value : String(value).split(','))
+                .map((p) => String(p).trim())
+                .filter((p) => /^([01]?\d|2[0-3]):[0-5]\d$/.test(p));
+            let lastTruncateAt = Date.parse(config.last_truncate_at || '');
+            if (isNaN(lastTruncateAt)) {
+                lastTruncateAt = 0;
             }
-            // Parse configured time (format: "HH:MM")
-            const [targetHour, targetMinute] = this.config.daily_truncate_time.split(':').map(Number);
             const now = new Date();
-            const currentHour = now.getHours();
-            const currentMinute = now.getMinutes();
-            // Check if current time matches the configured time (within 1 minute window)
-            const isTimeMatch = currentHour === targetHour && currentMinute === targetMinute;
-            if (!isTimeMatch) {
-                return false;
+            for (const time of lstTimes) {
+                const [targetHour, targetMinute] = time.split(':').map(Number);
+                const slot = new Date(now.getFullYear(), now.getMonth(), now.getDate(), targetHour, targetMinute).getTime();
+                const elapsed = now.getTime() - slot;
+                if (elapsed >= 0 && elapsed < this.truncateGraceMinutes * 60000 && lastTruncateAt < slot) {
+                    return time; // scheduled time reached and no truncate done since
+                }
             }
-            // Check if truncate already done today
-            const lastTruncateDate = this.getLastTruncateDate();
-            const today = now.toISOString().split('T')[0]; // YYYY-MM-DD format
-            if (lastTruncateDate === today) {
-                return false; // already truncated today
-            }
-            return true;
+            return '';
         }
         catch (err) {
-            logger.logError('database.shouldTruncateToday()', err);
-            return false;
-        }
-    }
-    getLastTruncateDate() {
-        try {
-            const configFile = './config.json';
-            const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
-            return config.database.last_truncate_date || '';
-        }
-        catch (err) {
+            logger.logError('database.getDueTruncateTime()', err);
             return '';
         }
     }
-    setLastTruncateDate(date) {
+    setLastTruncateAt() {
         try {
             const configFile = './config.json';
             const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
-            config.database.last_truncate_date = date;
+            config.database.last_truncate_at = new Date().toISOString();
+            delete config.database.last_truncate_date; // replaced by last_truncate_at
             fs.writeFileSync(configFile, JSON.stringify(config, null, 4));
         }
         catch (err) {
-            logger.logError('database.setLastTruncateDate()', err);
+            logger.logError('database.setLastTruncateAt()', err);
         }
     }
+    // resolves true if tables were truncated, false if truncate failed (never rejects)
     async truncateAllTables(lstTables) {
-        return new Promise(async (resolve, reject) => {
+        return new Promise(async (resolve) => {
             let retryCount = 0;
             const maxRetries = 2;
             while (retryCount < maxRetries) {
@@ -607,11 +604,10 @@ class _database {
                     else if (this.config.technology == 'postgres') {
                         await this.executeNonQuery('SET session_replication_role = DEFAULT;');
                     }
-                    // Update last truncate date
-                    const today = new Date().toISOString().split('T')[0];
-                    this.setLastTruncateDate(today);
+                    // Update last truncate timestamp
+                    this.setLastTruncateAt();
                     logger.logMessage('Daily truncate completed successfully [%s]', new Date().toLocaleString());
-                    resolve();
+                    resolve(true);
                     return;
                 }
                 catch (err) {
@@ -619,7 +615,7 @@ class _database {
                     logger.logError(`database.truncateAllTables() - Attempt ${retryCount}`, err);
                     if (retryCount >= maxRetries) {
                         logger.logMessage('Daily truncate failed after %d attempts, continuing with incremental sync [%s]', maxRetries, new Date().toLocaleString());
-                        resolve(); // Don't reject, just continue with incremental sync
+                        resolve(false); // Don't reject, just continue with incremental sync
                         return;
                     }
                     // Wait 2 seconds before retry

@@ -6,6 +6,7 @@ import { database } from './database.mjs';
 import { logger } from './logger.mjs'
 
 let isSyncRunning = false;
+let isTruncatePending = false;
 let lastMasterAlterId = 0;
 let lastTransactionAlterId = 0;
 
@@ -27,11 +28,12 @@ function parseCommandlineOptions(): Map<string, string> {
     return retval;
 }
 
-function invokeImport(forceTruncate: boolean = false): Promise<void> {
-    return new Promise<void>(async (resolve) => {
+// resolves true if import succeeded, false if it failed (never rejects)
+// caller is responsible for holding isSyncRunning flag
+function invokeImport(forceTruncate: boolean = false): Promise<boolean> {
+    return new Promise<boolean>(async (resolve) => {
+        let isSuccess = false;
         try {
-            isSyncRunning = true;
-
             // Clean up any leftover csv folder from a previously failed sync
             if (fs.existsSync('./csv')) {
                 fs.rmSync('./csv', { recursive: true });
@@ -42,22 +44,33 @@ function invokeImport(forceTruncate: boolean = false): Promise<void> {
             if (tally.config.sync === 'incremental' && forceTruncate) {
                 // Reopen connection pool if needed (it may have been closed by previous sync)
                 await database.openConnectionPool();
-                
+
                 const tableNames = getAllTableNames();
                 await database.truncateAllTables(tableNames);
             }
 
             await tally.importData();
             logger.logMessage('Import completed successfully [%s]', new Date().toLocaleString());
+            isSuccess = true;
         }
         catch (err) {
             logger.logMessage('Error in importing data\r\nPlease check error-log.txt file for detailed errors [%s]', new Date().toLocaleString());
         }
         finally {
-            isSyncRunning = false;
-            resolve();
-        }    
+            resolve(isSuccess);
+        }
     });
+}
+
+// Tables are emptied by truncate, so do it only when Tally is ready to send the data back
+async function isTallyReachable(): Promise<boolean> {
+    try {
+        tally.lastAlterIdMaster = -1;
+        await tally.updateLastAlterId(); // rejects if company is closed, leaves -1 if Tally is not responding
+        return tally.lastAlterIdMaster >= 0;
+    } catch (err) {
+        return false;
+    }
 }
 
 function getAllTableNames(): string[] {
@@ -95,26 +108,61 @@ let cmdConfig = parseCommandlineOptions();
 database.updateCommandlineConfig(cmdConfig);
 tally.updateCommandlineConfig(cmdConfig);
 
-// Setup daily truncate timer (checks every minute)
-if (tally.config.sync === 'incremental' && database.config.daily_truncate_time) {
+// Setup daily truncate timer (checks every minute, daily_truncate_time can hold multiple times)
+if (tally.config.sync === 'incremental' && tally.config.frequency > 0) {
     setInterval(async () => {
+        if (isTruncatePending) { // previous check is still waiting / running
+            return;
+        }
+        const dueTime = database.getDueTruncateTime();
+        if (!dueTime) {
+            return;
+        }
+
+        isTruncatePending = true;
         try {
-            if (database.shouldTruncateToday()) {
-                logger.logMessage('Daily truncate time reached, waiting for current sync to complete [%s]', new Date().toLocaleString());
-                
-                // Wait for current sync to finish if running (no timeout - wait indefinitely)
-                while (isSyncRunning) {
-                    await new Promise(r => setTimeout(r, 1000)); // check every second
+            logger.logMessage('Daily truncate time %s reached, waiting for current sync to complete [%s]', dueTime, new Date().toLocaleString());
+
+            // Wait for current sync to finish if running (no timeout - wait indefinitely)
+            while (isSyncRunning) {
+                await new Promise(r => setTimeout(r, 1000)); // check every second
+            }
+
+            isSyncRunning = true;
+            try {
+                if (!await isTallyReachable()) {
+                    logger.logMessage('Tally is not ready, daily truncate postponed (will retry in a minute) [%s]', new Date().toLocaleString());
+                    return;
                 }
-                
+
                 logger.logMessage('Starting daily truncate [%s]', new Date().toLocaleString());
-                
+
                 // Force truncate and sync
-                await invokeImport(true);
+                let isSuccess = await invokeImport(true);
+
+                // Tables may be lying empty if sync failed after truncate, so retry sync (without truncate)
+                for (let attempt = 1; !isSuccess && attempt <= 3; attempt++) {
+                    logger.logMessage('Sync after daily truncate failed, retrying in a minute (attempt %d of 3) [%s]', attempt, new Date().toLocaleString());
+                    await new Promise(r => setTimeout(r, 60000));
+                    isSuccess = await invokeImport();
+                }
+
+                if (isSuccess) {
+                    lastMasterAlterId = tally.lastAlterIdMaster;
+                    lastTransactionAlterId = tally.lastAlterIdTransaction;
+                }
+                else { // force regular sync to try again on its next trigger
+                    lastMasterAlterId = -2;
+                    lastTransactionAlterId = -2;
+                }
+            } finally {
+                isSyncRunning = false;
             }
         } catch (err) {
             logger.logError('Daily truncate timer', err);
-            logger.logMessage('Daily truncate failed, will retry at next scheduled time [%s]', new Date().toLocaleString());
+            logger.logMessage('Daily truncate failed [%s]', new Date().toLocaleString());
+        } finally {
+            isTruncatePending = false;
         }
     }, 60000); // check every minute
 }
@@ -125,29 +173,33 @@ if(tally.config.frequency <= 0) { // on-demand sync
 }
 else { // continuous sync
     const triggerImport = async () => {
+        // skip if sync is already running or daily truncate is waiting for its turn (wait for next trigger)
+        if(isSyncRunning || isTruncatePending) {
+            return;
+        }
+
+        isSyncRunning = true;
         try {
-            // skip if sync is already running (wait for next trigger)
-        if(!isSyncRunning) {
             await tally.updateLastAlterId();
 
             let isDataChanged = !(lastMasterAlterId == tally.lastAlterIdMaster && lastTransactionAlterId == tally.lastAlterIdTransaction);
             if(isDataChanged) { // process only if data is changed
-                //update local variable copy of last alter ID
-                lastMasterAlterId = tally.lastAlterIdMaster;
-                lastTransactionAlterId = tally.lastAlterIdTransaction;
-                await invokeImport();
+                let masterAlterId = tally.lastAlterIdMaster;
+                let transactionAlterId = tally.lastAlterIdTransaction;
+                if(await invokeImport()) {
+                    //update local variable copy of last alter ID (only on success, so that failed sync is retried on next trigger)
+                    lastMasterAlterId = masterAlterId;
+                    lastTransactionAlterId = transactionAlterId;
+                }
             }
             else {
                 logger.logMessage('No change in Tally data found [%s]', new Date().toLocaleString());
             }
-        }
         } catch (err) {
-            if(typeof err == 'string' && err.endsWith('is closed in Tally')) {
-                logger.logMessage(err + ' [%s]', new Date().toLocaleString());
-            }
-            else {
-                throw err;
-            }
+            // do not let utility crash (e.g. company closed in Tally), next trigger will try again
+            logger.logMessage('%s [%s]', typeof err == 'string' ? err : 'Error in checking Tally data for changes', new Date().toLocaleString());
+        } finally {
+            isSyncRunning = false;
         }
     }
 
