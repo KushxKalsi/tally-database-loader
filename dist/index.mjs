@@ -22,19 +22,22 @@ function parseCommandlineOptions() {
     }
     return retval;
 }
+// resolves true if import succeeded, false if it failed (never rejects)
 function invokeImport() {
     return new Promise(async (resolve) => {
+        let isSuccess = false;
         try {
             isSyncRunning = true;
             await tally.importData();
             logger.logMessage('Import completed successfully [%s]', new Date().toLocaleString());
+            isSuccess = true;
         }
         catch (err) {
             logger.logMessage('Error in importing data\r\nPlease check error-log.txt file for detailed errors [%s]', new Date().toLocaleString());
         }
         finally {
             isSyncRunning = false;
-            resolve();
+            resolve(isSuccess);
         }
     });
 }
@@ -51,21 +54,30 @@ else { // continuous sync
         try {
             // skip if sync is already running (wait for next trigger)
             if (!isSyncRunning) {
-                await tally.updateLastAlterId();
-                let isDataChanged = !(lastMasterAlterId == tally.lastAlterIdMaster && lastTransactionAlterId == tally.lastAlterIdTransaction);
-                if (isDataChanged) { // process only if data is changed
-                    //update local variable copy of last alter ID
-                    lastMasterAlterId = tally.lastAlterIdMaster;
-                    lastTransactionAlterId = tally.lastAlterIdTransaction;
-                    await invokeImport();
-                }
-                else {
-                    logger.logMessage('No change in Tally data found [%s]', new Date().toLocaleString());
+                // data added / altered in Tally while sync was running is left out of that sync,
+                // so follow it up with one more round right away instead of waiting for next trigger
+                for (let round = 1; round <= 2; round++) {
+                    await tally.updateLastAlterId();
+                    let isDataChanged = !(lastMasterAlterId == tally.lastAlterIdMaster && lastTransactionAlterId == tally.lastAlterIdTransaction);
+                    if (!isDataChanged) { // process only if data is changed
+                        if (round == 1) {
+                            logger.logMessage('No change in Tally data found [%s]', new Date().toLocaleString());
+                        }
+                        break;
+                    }
+                    let masterAlterId = tally.lastAlterIdMaster;
+                    let transactionAlterId = tally.lastAlterIdTransaction;
+                    if (!await invokeImport()) {
+                        break; // failed sync is retried on next trigger
+                    }
+                    //update local variable copy of last alter ID (only on success)
+                    lastMasterAlterId = masterAlterId;
+                    lastTransactionAlterId = transactionAlterId;
                 }
             }
         }
         catch (err) {
-            if (typeof err == 'string' && err.endsWith('is closed in Tally')) {
+            if (typeof err == 'string') { // e.g. company closed in Tally, next trigger will try again
                 logger.logMessage(err + ' [%s]', new Date().toLocaleString());
             }
             else {

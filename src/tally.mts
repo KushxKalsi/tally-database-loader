@@ -170,10 +170,13 @@ class _tally {
 
                         let lastAlterIdMasterDatabase = await database.executeScalar<number>(`select coalesce(max(cast(value as ${database.config.technology == 'mysql' ? 'unsigned int' : 'int'})),0) x from config where name = 'Last AlterID Master'`);
                         let lastAlterIdTransactionDatabase = await database.executeScalar<number>(`select coalesce(max(cast(value as ${database.config.technology == 'mysql' ? 'unsigned int' : 'int'})),0) x from config where name = 'Last AlterID Transaction'`);
+                        lastAlterIdMasterDatabase = Number(lastAlterIdMasterDatabase) || 0;
+                        lastAlterIdTransactionDatabase = Number(lastAlterIdTransactionDatabase) || 0;
 
                         //update active company information before starting import
+                        //last AlterID of database is retained as it is for now and moved forward only after sync is completed successfully (so that failed sync is repeated)
                         logger.logMessage('Updating company information configuration table [%s]', new Date().toLocaleDateString());
-                        await this.saveCompanyInfo();
+                        await this.saveCompanyInfo([lastAlterIdMasterDatabase, lastAlterIdTransactionDatabase]);
 
                         //prepare substitution list of runtime values to reflected in TDL XML
                         let configTallyXML = new Map<string, any>();
@@ -186,6 +189,22 @@ class _tally {
                         await this.updateLastAlterId(); //Update last alter ID
                         let lastAlterIdMasterTally = this.lastAlterIdMaster;
                         let lastAlterIdTransactionTally = this.lastAlterIdTransaction;
+
+                        //last AlterID of Tally is the upper limit of this sync. Tally does not lock data during sync, so anything
+                        //added / altered while sync is running (AlterID above this limit) is left for the next sync to pick up
+                        if (!(lastAlterIdMasterTally >= 0) || !(lastAlterIdTransactionTally >= 0) || (lastAlterIdMasterTally == 0 && lastAlterIdMasterDatabase > 0)) {
+                            throw 'Unable to fetch last AlterID from Tally';
+                        }
+
+                        //AlterID of Tally behind database means Tally data was restored / rewritten, so reload it completely
+                        if (lastAlterIdMasterTally < lastAlterIdMasterDatabase) {
+                            logger.logMessage('  Last AlterID of masters in Tally is behind database, reloading all masters');
+                            lastAlterIdMasterDatabase = 0;
+                        }
+                        if (lastAlterIdTransactionTally < lastAlterIdTransactionDatabase) {
+                            logger.logMessage('  Last AlterID of transactions in Tally is behind database, reloading all transactions');
+                            lastAlterIdTransactionDatabase = 0;
+                        }
 
                         //calculate flags to determine what changed
                         let flgIsMasterChanged = lastAlterIdMasterTally != lastAlterIdMasterDatabase;
@@ -232,10 +251,22 @@ class _tally {
                             await database.bulkLoad(path.join(process.cwd(), `./csv/_diff.data`), '_diff', tempTable.fields.map(p => p.type)); //upload to temporary table
                             fs.unlinkSync(path.join(process.cwd(), `./csv/_diff.data`)); //delete temporary file
 
+                            let isMasterTable = this.lstTableMasterYaml.includes(activeTable);
+                            let alterIdFrom = isMasterTable ? lastAlterIdMasterDatabase : lastAlterIdTransactionDatabase;
+                            let alterIdTo = isMasterTable ? lastAlterIdMasterTally : lastAlterIdTransactionTally;
+
+                            //empty list from Tally for a table having rows is treated as failed response, as going ahead would delete all of its rows
+                            let countDiffRows = Number(await database.executeScalar<number>('select count(*) as c from _diff;'));
+                            let countTableRows = Number(await database.executeScalar<number>(`select count(*) as c from ${activeTable.name};`));
+                            if (!countDiffRows && countTableRows) {
+                                throw `Tally returned empty list of ${activeTable.collection} for table ${activeTable.name}`;
+                            }
+
                             //insert into delete list rows there were deleted in current data compared to previous one
                             await database.executeNonQuery(`insert into _delete select guid from ${activeTable.name} where guid not in (select guid from _diff);`);
-                            //insert into delete list rows that were modified in current data (as they will be imported freshly)
-                            await database.executeNonQuery(`insert into _delete select t.guid from ${activeTable.name} as t join _diff as s on s.guid = t.guid where s.alterid <> t.alterid;`);
+                            //insert into delete list all the rows which are going to be imported in this sync (added / modified in Tally since last sync)
+                            //this also clears leftover rows of any earlier sync that failed half way, so same row can never be imported twice
+                            await database.executeNonQuery(`insert into _delete select guid from _diff where alterid > ${alterIdFrom} and alterid <= ${alterIdTo};`);
 
                             //remove delete list rows from the source table
                             await database.executeNonQuery(`delete from ${activeTable.name} where guid in (select guid from _delete)`);
@@ -258,6 +289,7 @@ class _tally {
                                 //add AlterID filter
                                 if (!Array.isArray(activeTable.filters))
                                     activeTable.filters = [];
+                                activeTable.filters.push(`NOT ($AlterID > ${lastAlterIdMasterTally})`); //upper limit
                                 activeTable.filters.push(`$AlterID > ${lastAlterIdMasterDatabase}`);
 
                                 let targetTable = activeTable.name;
@@ -276,6 +308,7 @@ class _tally {
                                 //add AlterID filter
                                 if (!Array.isArray(activeTable.filters))
                                     activeTable.filters = [];
+                                activeTable.filters.push(`NOT ($AlterID > ${lastAlterIdTransactionTally})`); //upper limit
                                 activeTable.filters.push(`$AlterID > ${lastAlterIdTransactionDatabase}`);
 
                                 let targetTable = activeTable.name;
@@ -365,6 +398,10 @@ class _tally {
                         await database.executeNonQuery('truncate table _diff ;');
                         await database.executeNonQuery('truncate table _delete ;');
                         await database.executeNonQuery('truncate table _vchnumber ;');
+
+                        //sync completed successfully, so move last AlterID of database forward to the limit upto which data was imported
+                        await database.executeNonQuery(`update config set value = '${lastAlterIdMasterTally}' where name = 'Last AlterID Master';`);
+                        await database.executeNonQuery(`update config set value = '${lastAlterIdTransactionTally}' where name = 'Last AlterID Transaction';`);
                     }
                     else
                         logger.logMessage('Incremental Sync is supported only for SQL Server / MySQL / PostgreSQL');
@@ -832,7 +869,8 @@ class _tally {
         });
     }
 
-    private saveCompanyInfo(): Promise<void> {
+    // lastAlterIds [master, transaction]: when specified, these are saved as last AlterID instead of current ones of Tally
+    private saveCompanyInfo(lastAlterIds?: [number, number]): Promise<void> {
         return new Promise<void>(async (resolve, reject) => {
             try {
                 const convertDateYYYYMMDD = (dateStr: string): string => {
@@ -858,6 +896,9 @@ class _tally {
                     }
                     let altIdMaster = parseInt(lstCompanyInfoParts[4]);
                     let altIdTransaction = parseInt(lstCompanyInfoParts[5]);
+                    if (lastAlterIds) {
+                        [altIdMaster, altIdTransaction] = lastAlterIds;
+                    }
 
                     //clear config table of database and insert active company info to config table
                     if (/^(mssql|mysql|postgres)$/g.test(database.config.technology)) {
