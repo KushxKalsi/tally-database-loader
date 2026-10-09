@@ -169,6 +169,27 @@ class _database {
             }
         });
     }
+    isNumericFieldType(fieldType) {
+        return fieldType == 'number' || fieldType == 'logical' || fieldType == 'amount' || fieldType == 'quantity' || fieldType == 'rate';
+    }
+    // Fallback for numeric field whose value was not fetched from Tally as a plain number.
+    // A valid number is returned untouched, so this affects only the values which database would reject otherwise
+    //   blank => null | (-)5 => -5 | 5 Nos => 5 | any other text => 0
+    sanitizeNumber(value) {
+        value = value.trim();
+        if (/^-?\d+(\.\d+)?$/.test(value)) {
+            return value; //valid number
+        }
+        if (value == '' || value == 'ñ') {
+            return null;
+        }
+        let bracketSign = /^\(([-+])\)\s*(\d+\.?\d*)$/.exec(value); //sign enclosed in round braces
+        if (bracketSign) {
+            return (bracketSign[1] == '-' ? '-' : '') + bracketSign[2];
+        }
+        let numValue = parseFloat(value);
+        return isNaN(numValue) ? '0' : numValue.toString();
+    }
     convertCSV(content, lstFieldType, doubleQuote = false) {
         let lstLines = content.split(/\r\n/g);
         for (let r = 0; r < lstLines.length; r++) {
@@ -179,10 +200,14 @@ class _database {
             for (let c = 0; c < lstValues.length; c++) {
                 let targetFieldType = lstFieldType[c];
                 let targetFieldValue = lstValues[c];
+                if (r > 0 && targetFieldValue != 'ø' && this.isNumericFieldType(targetFieldType)) //skip header row and NULL placeholder
+                    targetFieldValue = this.sanitizeNumber(targetFieldValue) ?? '';
                 if (doubleQuote)
                     lstValues[c] = `"${targetFieldValue}"`;
                 else if (targetFieldType == 'text' || targetFieldType == 'date')
                     lstValues[c] = `"${targetFieldValue}"`;
+                else
+                    lstValues[c] = targetFieldValue;
             }
             lstLines[r] = lstValues.join(',');
         }
@@ -210,11 +235,9 @@ class _database {
                     else if (fieldType == 'text') { //Text
                         fieldValue = fieldRawValue;
                     }
-                    else if (fieldType == 'number' || fieldType == 'logical' || fieldType == 'amount' || fieldType == 'quantity' || fieldType == 'rate') { //Numeric
-                        fieldValue = parseFloat(fieldRawValue);
-                        if (isNaN(fieldValue)) {
-                            fieldValue = null;
-                        }
+                    else if (this.isNumericFieldType(fieldType)) { //Numeric
+                        let numericText = this.sanitizeNumber(fieldRawValue);
+                        fieldValue = numericText === null ? null : parseFloat(numericText);
                     }
                     else if (fieldType == 'date') {
                         fieldValue = fieldRawValue == '' ? null : new Date(fieldRawValue);
@@ -297,7 +320,11 @@ class _database {
                     let fieldList = lstLines.shift() || ''; //extract header
                     fieldList = fieldList.replace(/\t/g, ','); //replace tab with comma for header
                     while (lstLines.length) { //loop until row is found
-                        sqlQuery = `insert into ${targetTable} (${fieldList}) values`;
+                        let insertVerb = 'insert into';
+                        if (this.config.technology == 'mysql')
+                            insertVerb = 'insert ignore into';
+                        // Postgres will use ON CONFLICT DO NOTHING appended later
+                        sqlQuery = `${insertVerb} ${targetTable} (${fieldList}) values`;
                         let countBatch = 0; //number of rows in batch
                         //run a loop to keep on appending row to SQL Query values until max allowable size of query is exhausted
                         while (lstLines.length && (sqlQuery.length + lstLines[0].length + 3 < this.maxQuerySize) && ++countBatch <= 1000) {
@@ -319,13 +346,20 @@ class _database {
                                 else if (targetFieldType == 'date') {
                                     lstValues[i] = targetFieldValue == 'ñ' ? 'NULL' : `'${targetFieldValue}'`;
                                 }
+                                else if (this.isNumericFieldType(targetFieldType)) {
+                                    lstValues[i] = this.sanitizeNumber(targetFieldValue) ?? 'NULL';
+                                }
                                 else
                                     ;
                             }
                             activeLine = lstValues.join(','); //prepare SQL statement with values separated by comma
                             sqlQuery += `(${activeLine}),`; //enclose row values into round braces
                         }
-                        sqlQuery = sqlQuery.slice(0, -1) + ';'; //remove last trailing comma and append colon
+                        sqlQuery = sqlQuery.slice(0, -1);
+                        if (this.config.technology == 'postgres') {
+                            sqlQuery += ' on conflict do nothing';
+                        }
+                        sqlQuery += ';'; //remove last trailing comma and append colon
                         rowCount += await this.executeNonQuery(sqlQuery);
                     }
                 }

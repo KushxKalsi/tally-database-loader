@@ -1191,7 +1191,7 @@ class _tally {
                         retval = retval.split('=')[1].trim(); //extract numeric part after equal sign
                         retval = retval.replace(/[^0-9\.\-]/g, ''); //remove non-numeric characters
                     }
-                    retval = parseFloat(retval);
+                    retval = parseFloat(database.sanitizeNumber(retval) ?? '0');
                     if (isNaN(retval)) {
                         retval = 0;
                     }
